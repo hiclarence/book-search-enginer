@@ -3,15 +3,15 @@ const { User, Book } = require('../models');
 const { signToken } = require('../utils/auth');
 
 const resolvers = {
-  Query: {
-    users: async () => {
-      return User.find();
-    }
-
-    // profile: async (parent, { profileId }) => {
-    //   return Profile.findOne({ _id: profileId });
-    // },
-  },
+    Query: {
+        me: async (parent, args, context) => {
+            if (context.user) {
+                const data = await User.findOne({ _id: context.user._id });
+                return data;
+            }
+            throw new AuthenticationError("You need to be logged in!");
+        }
+    },
 
   Mutation: {
     addUser: async (parent, { username, email, password }) => {
@@ -37,12 +37,35 @@ const resolvers = {
         return { token, user };
       },
     
-    //needs review
-    saveBook: async (parent, { author, description, title, bookId, image, link }) => {
-        return Book.create({ a: BookId });
+    saveBook: async (parent, { newBook }, context) => {
+        if (context.user) {
+            const newUserData = await User.findOneAndUpdate(
+                { _id: context.user._id },
+                {
+                    $addToSet: {
+                        savedBooks: newBook 
+                    }
+                },
+                { new: true }
+            )
+            return newUserData;
+        }
+        throw new AuthenticationError("You need to be logged in!");
     },
-    removeBook: async (parent, { BookId }) => {
-      return Book.findOneAndDelete({ BookId: BookId });
+    removeBook: async (parent, { bookId }, context) => {
+        if (context.user) {
+            const newUserData = await User.findOneAndUpdate(
+                { _id: context.user._id },
+                {
+                    $pull: {
+                        savedBooks: { bookId }
+                    }
+                },
+                { new: true, runValidators: true },
+            )
+            return newUserData;
+        }
+        throw new AuthenticationError("You need to be logged in!");
     }
   },
 };
